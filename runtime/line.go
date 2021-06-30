@@ -35,7 +35,6 @@ type lineWriter struct {
 	state *State
 	lines []*Line
 	size  int
-	limit int
 }
 
 func newWriter(state *State) *lineWriter {
@@ -44,16 +43,10 @@ func newWriter(state *State) *lineWriter {
 	w.now = time.Now().UTC()
 	w.state = state
 	w.rep = newReplacer(state.config.Secrets)
-	w.limit = 5242880 // 5MB max log size
 	return w
 }
 
 func (w *lineWriter) Write(p []byte) (n int, err error) {
-	// if the maximum log size has been exceeded, the
-	// log entry is silently ignored.
-	if w.size >= w.limit {
-		return len(p), nil
-	}
 
 	out := string(p)
 	if w.rep != nil {
@@ -87,17 +80,6 @@ func (w *lineWriter) Write(p []byte) (n int, err error) {
 		w.num++
 
 		w.lines = append(w.lines, line)
-	}
-
-	// if the write exceeds the maximum output we should
-	// write a single line to the end of the logs that
-	// indicates the output is being truncated.
-	if w.size >= w.limit {
-		w.lines = append(w.lines, &Line{
-			Number:    w.num,
-			Message:   "warning: maximum output exceeded",
-			Timestamp: int64(time.Since(w.now).Seconds()),
-		})
 	}
 
 	return len(p), nil
